@@ -1,6 +1,9 @@
 #include <vector>
 #include <iostream>
 #include <unordered_set>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <fstream>
 
 std::vector<int> expand(int x) {
   return {(x / 16) % 4, (x / 4) % 4, x % 4};
@@ -35,7 +38,7 @@ void init() {
   }
 }
 
-std::vector<std::pair<int, int>> f(const graph& g) {
+std::vector<std::pair<int, int>> neighborhood(const graph& g) {
   int n = g.v.size();
   std::vector<bool> mkd(64);
   std::vector<int> map(64);
@@ -86,15 +89,49 @@ void print_graph(const graph &g) {
   std::cout << '\n';
 }
 
-int main() {
-  int lim = 5;
-//  if (argc == 2) {
-//    lim = atoi(argv[1]);
-//  }
+void print_graphs(const std::vector<graph> &a) {
+  int fd[2];
+  if (pipe(fd) == -1) {
+    std::cerr << "pipe failed\n";
+    exit(1);
+  }
+  pid_t pid = fork();
+  if (pid == -1) {
+    std::cerr << "fork failed";
+    exit(1);
+  }
+  else if (pid == 0) {
+    close(STDIN_FILENO);
+    dup(fd[0]);
+    close(fd[1]);
+    close(fd[0]);
+    std::string outfile = "/home/dpark/" + std::to_string(a[0].v.size()) + ".g6";
+    const char *argv[] = {"amtog", "-", outfile.c_str(), nullptr};
+    execvp("/home/dpark/nauty27r1/amtog", const_cast<char *const *>(argv));
+    std::cerr << "execvp failed";
+    exit(1);
+  }
+  else {
+    int stdout_copy = dup(STDOUT_FILENO);
+    close(STDOUT_FILENO);
+    dup(fd[1]);
+    close(fd[0]);
+    for (const graph &g : a) {
+      print_graph(g);
+    }
+    std::cout << "q\n";
+    std::cout.flush();
+    close(fd[1]);
+    wait(nullptr);
+    dup2(stdout_copy, STDOUT_FILENO);
+  }
+}
 
+int main(int argc, char* argv[]) {
+  int lim = 5;
   init();
 
-  // initialize f(4)
+  // initialize n = 4
   std::vector<graph> a(2);
   a[0].v = {0, 1, 4, 16};
   a[0].e.resize(64);
@@ -108,12 +145,19 @@ int main() {
   a[1].e[1] = {0, 2};
   a[1].e[2] = {0, 1};
   a[1].e[4] = {0};
+//  std::vector<graph> a;
+//  std::fstream infile;
+//  infile.open("/home/dpark/4.g6", std::ios::in);
+//  std::string line;
+//  while (getline(infile, line)) {
+//
+//  }
+//  infile.close();
 
-  // next step
   for (int n = 4; n < lim; n++) {
     std::vector<graph> b;
     for (const graph &g : a) {
-      std::vector<std::pair<int, int>> vl = f(g);
+      std::vector<std::pair<int, int>> vl = neighborhood(g);
       for (auto[v, w] : vl) {
         graph h = g;
         h.v.push_back(v);
@@ -127,10 +171,7 @@ int main() {
       }
     }
     a = std::move(b);
-    for (const graph &g : a) {
-      print_graph(g);
-    }
-    std::cout << "q\n";
+    print_graphs(a);
   }
   return 0;
 }
