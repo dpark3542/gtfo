@@ -4,3 +4,4 @@ project(gtfo)
 set(CMAKE_CXX_STANDARD 20)
 
 add_executable(SteinerTripleSystems sts_toughness.cpp)
+add_executable(Hamming hamming.cpp)
