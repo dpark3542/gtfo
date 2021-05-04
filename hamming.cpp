@@ -3,6 +3,10 @@
 #include <unordered_set>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <ext/pb_ds/assoc_container.hpp>
+
+int LIM = 10;
+std::string CWD = "/home/dpark/hamming/", NAUTY = "/home/dpark/nauty27r1/";
 
 std::vector<int> expand(int x) {
   return {(x / 16) % 4, (x / 4) % 4, x % 4};
@@ -37,10 +41,10 @@ void init() {
   }
 }
 
-std::vector<std::pair<int, int>> neighborhood(const graph& g) {
+__gnu_pbds::gp_hash_table<unsigned int, int> neighborhood(const graph& g) {
   int n = g.v.size();
   std::vector<bool> mkd(64);
-  std::vector<int> map(64);
+  std::vector<unsigned int> tag(64);
   for (int v : g.v) {
     mkd[v] = true;
     if (g.e[v].size() == 3) {
@@ -52,19 +56,22 @@ std::vector<std::pair<int, int>> neighborhood(const graph& g) {
   for (int i = 0; i < n; i++) {
     for (int w : ham.e[g.v[i]]) {
       if (!mkd[w]) {
-        map[w] = map[w] | (1 << i);
+        if (std::popcount(tag[w]) == 3) {
+          mkd[w] = true;
+        }
+        else {
+          tag[w] = tag[w] | (1 << i);
+        }
       }
     }
   }
-  std::unordered_set<int> s;
-  std::vector<std::pair<int, int>> ans;
+  __gnu_pbds::gp_hash_table<unsigned int, int> map;
   for (int v = 0; v < 64; v++) {
-    if (map[v] != 0 && !s.contains(map[v])) {
-      ans.emplace_back(v, map[v]);
-      s.insert(map[v]);
+    if (!mkd[v] && tag[v] != 0) {
+      map[tag[v]] = v;
     }
   }
-  return ans;
+  return map;
 }
 
 // print single graph in amtog input style
@@ -105,9 +112,9 @@ void print_graphs(const std::vector<graph> &a) {
     dup(fd[0]);
     close(fd[1]);
     close(fd[0]);
-    std::string outfile = "/home/dpark/" + std::to_string(a[0].v.size()) + ".g6";
+    std::string outfile = CWD + std::to_string(a[0].v.size()) + ".g6", amtog = NAUTY + "amtog";
     const char *argv[] = {"amtog", "-", outfile.c_str(), nullptr};
-    execvp("/home/dpark/nauty27r1/amtog", const_cast<char *const *>(argv));
+    execvp(amtog.c_str(), const_cast<char *const *>(argv));
     std::cerr << "execvp failed";
     exit(1);
   }
@@ -143,9 +150,9 @@ std::vector<int> unique_graphs(int n) {
     dup(fd[1]);
     close(fd[0]);
     close(fd[1]);
-    std::string infile = "/home/dpark/" + std::to_string(n) + ".g6";
+    std::string infile = CWD + std::to_string(n) + ".g6", shortg = NAUTY + "shortg";
     const char *argv[] = {"shortg", infile.c_str(), "-v", nullptr};
-    execvp("/home/dpark/nauty27r1/shortg", const_cast<char *const *>(argv));
+    execvp(shortg.c_str(), const_cast<char *const *>(argv));
     std::cout << "execvp failed";
     exit(1);
   }
@@ -174,7 +181,6 @@ std::vector<int> unique_graphs(int n) {
 }
 
 int main() {
-  int lim = 16;
   init();
 
   // initialize n = 4
@@ -192,15 +198,15 @@ int main() {
   a[1].e[2] = {0, 1};
   a[1].e[4] = {0};
 
-  for (int n = 4; n < lim; n++) {
+  for (int n = 4; n < LIM; n++) {
     std::cout << "enumerating" << std::endl;
     std::vector<graph> b;
     for (const graph &g : a) {
-      std::vector<std::pair<int, int>> vl = neighborhood(g);
-      for (auto[v, w] : vl) {
+      __gnu_pbds::gp_hash_table<unsigned int, int> add = neighborhood(g);
+      for (auto [k, v] : add) {
         graph h = g;
         h.v.push_back(v);
-        for (int i = 0; w != 0; i++, w >>= 1) {
+        for (unsigned int w = k, i = 0; w != 0; w >>= 1, i++) {
           if (w & 1) {
             h.e[v].push_back(h.v[i]);
             h.e[h.v[i]].push_back(v);
