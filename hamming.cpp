@@ -85,7 +85,7 @@ void print_graph(const graph &g) {
     }
     std::cout << '\n';
   }
-  std::cout << '\n';
+  std::cout << std::endl;
 }
 
 // pass vector of graphs through amtog to file
@@ -116,12 +116,11 @@ void print_graphs(const std::vector<graph> &a) {
     close(STDOUT_FILENO);
     dup(fd[1]);
     close(fd[0]);
+    close(fd[1]);
     for (const graph &g : a) {
       print_graph(g);
     }
-    std::cout << "q\n";
-    std::cout.flush();
-    close(fd[1]);
+    std::cout << "q" << std::endl;
     wait(nullptr);
     dup2(stdout_copy, STDOUT_FILENO);
   }
@@ -143,10 +142,11 @@ std::vector<int> unique_graphs(int n) {
     close(STDERR_FILENO);
     dup(fd[1]);
     close(fd[0]);
+    close(fd[1]);
     std::string infile = "/home/dpark/" + std::to_string(n) + ".g6";
     const char *argv[] = {"shortg", infile.c_str(), "-v", nullptr};
     execvp("/home/dpark/nauty27r1/shortg", const_cast<char *const *>(argv));
-    std::cerr << "execvp failed";
+    std::cout << "execvp failed";
     exit(1);
   }
   else {
@@ -154,8 +154,6 @@ std::vector<int> unique_graphs(int n) {
     dup(fd[0]);
     close(fd[1]);
     close(fd[0]);
-    wait(nullptr);
-    // process output
     int cnt = 0;
     std::string s;
     std::vector<int> a;
@@ -170,11 +168,12 @@ std::vector<int> unique_graphs(int n) {
         a.push_back(x);
       }
     }
+    wait(nullptr);
     return a;
   }
 }
 
-int main(int argc, char* argv[]) {
+int main() {
   int lim = 12;
   init();
 
