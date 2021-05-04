@@ -3,7 +3,6 @@
 #include <unordered_set>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <fstream>
 
 std::vector<int> expand(int x) {
   return {(x / 16) % 4, (x / 4) % 4, x % 4};
@@ -68,7 +67,7 @@ std::vector<std::pair<int, int>> neighborhood(const graph& g) {
   return ans;
 }
 
-// print graph in amtog input style
+// print single graph in amtog input style
 void print_graph(const graph &g) {
   int n = g.v.size();
   std::cout << "n=" << n << '\n';
@@ -89,6 +88,7 @@ void print_graph(const graph &g) {
   std::cout << '\n';
 }
 
+// pass vector of graphs through amtog to file
 void print_graphs(const std::vector<graph> &a) {
   int fd[2];
   if (pipe(fd) == -1) {
@@ -127,8 +127,55 @@ void print_graphs(const std::vector<graph> &a) {
   }
 }
 
+// prune graphs in file with shortg
+std::vector<int> unique_graphs(int n) {
+  int fd[2];
+  if (pipe(fd) == -1) {
+    std::cerr << "pipe failed\n";
+    exit(1);
+  }
+  pid_t pid = fork();
+  if (pid == -1) {
+    std::cerr << "fork failed";
+    exit(1);
+  }
+  else if (pid == 0) {
+    close(STDERR_FILENO);
+    dup(fd[1]);
+    close(fd[0]);
+    std::string infile = "/home/dpark/" + std::to_string(n) + ".g6";
+    const char *argv[] = {"shortg", infile.c_str(), "-v", nullptr};
+    execvp("/home/dpark/nauty27r1/shortg", const_cast<char *const *>(argv));
+    std::cerr << "execvp failed";
+    exit(1);
+  }
+  else {
+    close(STDIN_FILENO);
+    dup(fd[0]);
+    close(fd[1]);
+    close(fd[0]);
+    wait(nullptr);
+    // process output
+    int cnt = 0;
+    std::string s;
+    std::vector<int> a;
+    while (cnt < 2) {
+      std::cin >> s;
+      if (s == ">Z") {
+        cnt++;
+      }
+      else if (s == ":") {
+        int x;
+        std::cin >> x;
+        a.push_back(x);
+      }
+    }
+    return a;
+  }
+}
+
 int main(int argc, char* argv[]) {
-  int lim = 5;
+  int lim = 12;
   init();
 
   // initialize n = 4
@@ -145,16 +192,9 @@ int main(int argc, char* argv[]) {
   a[1].e[1] = {0, 2};
   a[1].e[2] = {0, 1};
   a[1].e[4] = {0};
-//  std::vector<graph> a;
-//  std::fstream infile;
-//  infile.open("/home/dpark/4.g6", std::ios::in);
-//  std::string line;
-//  while (getline(infile, line)) {
-//
-//  }
-//  infile.close();
 
   for (int n = 4; n < lim; n++) {
+    std::cout << "enumerating" << std::endl;
     std::vector<graph> b;
     for (const graph &g : a) {
       std::vector<std::pair<int, int>> vl = neighborhood(g);
@@ -171,7 +211,17 @@ int main(int argc, char* argv[]) {
       }
     }
     a = std::move(b);
+    b.clear();
+    std::cout << a.size() << " graphs" << std::endl;
+    std::cout << "writing" << std::endl;
     print_graphs(a);
+    std::cout << "unique" << std::endl;
+    std::vector<int> ind = unique_graphs(n + 1);
+    for (int i : ind) {
+      b.push_back(a[i - 1]);
+    }
+    a = std::move(b);
+    std::cout << n + 1 << ": " << a.size() << " graphs" << std::endl;
   }
   return 0;
 }
