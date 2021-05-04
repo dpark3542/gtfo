@@ -174,7 +174,7 @@ std::vector<int> unique_graphs(int n) {
 }
 
 int main() {
-  int lim = 12;
+  int lim = 16;
   init();
 
   // initialize n = 4
