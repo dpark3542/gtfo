@@ -8,34 +8,74 @@
 #include "nauty.h"
 
 std::string GAP = "/home/dpark/gap-4.11.1/gap";
-std::vector<std::vector<int>> automorphisms;
+std::vector<std::vector<int>> generators;
 
 void capture(int count, int *perm, int *orbits, int numorbits, int stabvertex, int n) {
   std::vector<int> a(n);
   for (int i = 0; i < n; i++) {
     a[i] = perm[i];
   }
-  automorphisms.push_back(a);
+  generators.push_back(a);
 }
 
-// TODO: handle sets which overflow to next line
-void parse(std::vector<std::vector<int>> &ans, std::string &line) {
-  std::regex a(R"(\[ \[ [\d\s,]+ \] \])"), b(R"(\d+)");
-  std::sregex_token_iterator it(line.begin(), line.end(), a), end;
-  while (it != end) {
-    std::string s(it->str());
-    std::sregex_token_iterator it2(s.begin(), s.end(), b);
-    std::vector<int> v;
-    while (it2 != end) {
-      v.push_back(std::stoi(*it2));
-      it2++;
+unsigned int next(unsigned int x) {
+  int a = 0, b = 0;
+  while ((x & 3) != 1) {
+    if ((x & 1) == 1) {
+      a++;
     }
-    if (!v.empty()) {
-      ans.push_back(v);
-    }
-    it++;
+    b++;
+    x >>= 1;
   }
+  return ((x + 1) << b) + (1 << a) - 1;
 }
+
+unsigned int prev(unsigned int x) {
+  int a = 0, b = 0;
+  while ((x & 3) != 2) {
+    if ((x & 1) == 0) {
+      a++;
+    }
+    b++;
+    x >>= 1;
+  }
+  return ((x ^ 3) << b) + (1 << b) - (1 << a);
+}
+
+void print_set(unsigned int x) {
+  for (int i = 1; x != 0; i++,x>>=1) {
+    if (x & 1) {
+      std::cout << i << ' ';
+    }
+  }
+  std::cout << std::endl;
+}
+
+void print_map(std::map<unsigned int, unsigned int> &map) {
+  for (auto &[k, v] : map) {
+    std::cout << '[' << k << ", " << v << "] ";
+  }
+  std::cout << std::endl;
+}
+
+//// TODO: rework. We know numbers come in sets of t.
+//void parse_ans(std::vector<std::vector<int>> &ans, std::string &line) {
+//  std::regex a(R"(\[ \[ [\d\s,]+ \] \])"), b(R"(\d+)");
+//  std::sregex_token_iterator it(line.begin(), line.end(), a), end;
+//  while (it != end) {
+//    std::string s(it->str());
+//    std::sregex_token_iterator it2(s.begin(), s.end(), b);
+//    std::vector<int> v;
+//    while (it2 != end) {
+//      v.push_back(std::stoi(*it2));
+//      it2++;
+//    }
+//    if (!v.empty()) {
+//      ans.push_back(v);
+//    }
+//    it++;
+//  }
+//}
 
 // input: filename or
 // n: number of vertices
@@ -141,48 +181,127 @@ int main(int argc, char **argv) {
 
     // create automorphism group
     std::cout << "g:=Group(";
-    for (const auto &a : automorphisms) {
+    for (const auto &gen : generators) {
       std::vector<bool> mkd(n);
       for (int i = 0; i < n; i++) {
-        if (!mkd[i] && a[i] != i) {
+        if (!mkd[i] && gen[i] != i) {
           std::cout << '(';
           int j = i;
-          while (a[j] != i) {
+          while (gen[j] != i) {
             mkd[j] = true;
             std::cout << j + 1 << ',';
-            j = a[j];
+            j = gen[j];
           }
           mkd[j] = true;
           std::cout << j + 1 << ')';
         }
       }
-      if (a != automorphisms.back()) {
+      if (gen != generators.back()) {
         std::cout << ',';
       }
     }
     std::cout << ");;" << std::endl;
 
-    // get orbits of t-sets
-    std::cout << "l:=OrbitsDomain(g, Combinations([1.." << n << "], " << t << "), OnSets);;" << std::endl;
+//    // get orbits of t-sets
+//    std::cout << "l:=OrbitsDomain(g, Combinations([1.." << n << "], " << t << "), OnSets);;" << std::endl;
+//
+//    // get representatives of each orbit
+//    std::cout << "l{[1..Length(l)]}{[1]};" << std::endl;
+//    std::cout << "quit;" << std::endl;
+//    wait(nullptr);
+//    dup2(stdout_copy, STDOUT_FILENO);
+//
+//    // parse gap output
+//    std::vector<std::vector<int>> ans;
+//    std::string line;
+//    while (getline(std::cin, line)) {
+//      parse_ans(ans, line);
+//    }
+//
+//    std::vector<std::vector<int>> ans;
 
-    // get representatives of each orbit
-    std::cout << "l{[1..Length(l)]}{[1]};" << std::endl;
+    std::cout << "SetPrintFormattingStatus(\"*stdout*\", false);;" << std::endl;
+//    std::cout << "AsList(g);" << std::endl;
+    std::cout << "Orbit(g, [1.." << n << "], OnTuples);" << std::endl;
+
+    std::string line;
+    while (!line.starts_with("gap> gap> gap> [ ")) {
+      getline(std::cin, line);
+    }
+
     std::cout << "quit;" << std::endl;
     wait(nullptr);
     dup2(stdout_copy, STDOUT_FILENO);
-
-    // parse gap output
-    std::vector<std::vector<int>> ans;
-    std::string line;
-    while (getline(std::cin, line)) {
-      parse(ans, line);
-    }
-    std::cout << ans.size() << " sets" << std::endl;
-    for (const auto& s : ans) {
-      for (int i = 0; i < t - 1; i++) {
-        std::cout << s[i] << ", ";
+    std::vector<std::vector<int>> automorphisms;
+    std::regex r(R"(\d+)");
+    std::sregex_token_iterator it(line.begin(), line.end(), r), end;
+    while (it != end) {
+      std::vector<int> a(n);
+      for (int i = 0; i < n; i++) {
+        a[i] = std::stoi(*it) - 1;
+        it++;
       }
-      std::cout << s[t - 1] << std::endl;
+      automorphisms.push_back(a);
     }
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    std::vector<std::vector<int>> ans;
+    std::map<unsigned int, unsigned int> map{{(1 << t) - 1, ((1 << t) - 1) << (n - t)}};
+    while (!map.empty()) {
+      unsigned int min = map.begin()->first;
+
+      std::vector<int> s;
+      for (int i = 1, x = min; x != 0; i++, x>>=1) {
+        if (x & 1) {
+          s.push_back(i);
+        }
+      }
+      ans.push_back(s);
+
+      for (const auto &a : automorphisms) {
+        unsigned int im = 0;
+        for (int i = n - 1; i >= 0; i--) {
+          im = (im << 1) + ((min >> a[i]) & 1);
+        }
+        auto l = map.lower_bound(im);
+        if (l != map.end() && im == l->first) {
+          if (im == l->second) {
+            map.erase(l);
+          }
+          else {
+            auto entry = map.extract(l->first);
+            entry.key() = next(im);
+            map.insert(std::move(entry));
+          }
+        }
+        else if (l != map.begin()) {
+          l--;
+          if (im == l->second) {
+            l->second = prev(l->second);
+          }
+          else if (im < l->second) {
+            map[next(im)] = l->second;
+            l->second = prev(im);
+          }
+        }
+
+//        print_map(map);
+      }
+//      std::cout << map.size() << std::endl;
+    }
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> d = stop - start;
+    std::cout << d.count() << "ms" << std::endl;
+
+//    // print answer
+//    std::cout << ans.size() << " sets" << std::endl;
+//    for (const auto& s : ans) {
+//      for (int i = 0; i < t - 1; i++) {
+//        std::cout << s[i] << ", ";
+//      }
+//      std::cout << s[t - 1] << std::endl;
+//    }
   }
 }
