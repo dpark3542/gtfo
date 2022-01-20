@@ -42,39 +42,13 @@ unsigned int prev(unsigned int x) {
   return ((x ^ 3) << b) + (1 << b) - (1 << a);
 }
 
-void print_set(unsigned int x) {
-  for (int i = 1; x != 0; i++,x>>=1) {
-    if (x & 1) {
-      std::cout << i << ' ';
-    }
-  }
-  std::cout << std::endl;
-}
-
-void print_map(std::map<unsigned int, unsigned int> &map) {
-  for (auto &[k, v] : map) {
-    std::cout << '[' << k << ", " << v << "] ";
-  }
-  std::cout << std::endl;
-}
-
-//// TODO: rework. We know numbers come in sets of t.
-//void parse_ans(std::vector<std::vector<int>> &ans, std::string &line) {
-//  std::regex a(R"(\[ \[ [\d\s,]+ \] \])"), b(R"(\d+)");
-//  std::sregex_token_iterator it(line.begin(), line.end(), a), end;
-//  while (it != end) {
-//    std::string s(it->str());
-//    std::sregex_token_iterator it2(s.begin(), s.end(), b);
-//    std::vector<int> v;
-//    while (it2 != end) {
-//      v.push_back(std::stoi(*it2));
-//      it2++;
+//void print_set(unsigned int x) {
+//  for (int i = 1; x != 0; i++,x>>=1) {
+//    if (x & 1) {
+//      std::cout << i << ' ';
 //    }
-//    if (!v.empty()) {
-//      ans.push_back(v);
-//    }
-//    it++;
 //  }
+//  std::cout << std::endl;
 //}
 
 // input: filename or
@@ -202,24 +176,6 @@ int main(int argc, char **argv) {
     }
     std::cout << ");;" << std::endl;
 
-//    // get orbits of t-sets
-//    std::cout << "l:=OrbitsDomain(g, Combinations([1.." << n << "], " << t << "), OnSets);;" << std::endl;
-//
-//    // get representatives of each orbit
-//    std::cout << "l{[1..Length(l)]}{[1]};" << std::endl;
-//    std::cout << "quit;" << std::endl;
-//    wait(nullptr);
-//    dup2(stdout_copy, STDOUT_FILENO);
-//
-//    // parse gap output
-//    std::vector<std::vector<int>> ans;
-//    std::string line;
-//    while (getline(std::cin, line)) {
-//      parse_ans(ans, line);
-//    }
-//
-//    std::vector<std::vector<int>> ans;
-
     std::cout << "SetPrintFormattingStatus(\"*stdout*\", false);;" << std::endl;
 //    std::cout << "AsList(g);" << std::endl;
     std::cout << "Orbit(g, [1.." << n << "], OnTuples);" << std::endl;
@@ -285,10 +241,7 @@ int main(int argc, char **argv) {
             l->second = prev(im);
           }
         }
-
-//        print_map(map);
       }
-//      std::cout << map.size() << std::endl;
     }
 
     auto stop = std::chrono::high_resolution_clock::now();
